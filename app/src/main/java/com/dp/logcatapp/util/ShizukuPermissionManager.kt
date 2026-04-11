@@ -1,15 +1,22 @@
 package com.dp.logcatapp.util
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.IBinder
+import com.dp.logcatapp.IShizukuUserService
+import com.dp.logcatapp.services.ShizukuUserService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuRemoteProcess
+import kotlin.coroutines.resume
 
 object ShizukuPermissionManager {
 
@@ -17,9 +24,6 @@ object ShizukuPermissionManager {
 
     private val _shizukuState = MutableStateFlow(ShizukuState.UNKNOWN)
     val shizukuState: StateFlow<ShizukuState> = _shizukuState.asStateFlow()
-
-    private val _grantResult = MutableStateFlow<GrantResult?>(null)
-    val grantResult: StateFlow<GrantResult?> = _grantResult.asStateFlow()
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         _shizukuState.value = checkShizukuState()
@@ -32,11 +36,10 @@ object ShizukuPermissionManager {
     private val requestPermissionResultListener =
         Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
             if (requestCode == SHIZUKU_REQUEST_CODE) {
-                if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                    _shizukuState.value = ShizukuState.READY
-                    _grantResult.value = GrantResult.GRANTED
+                _shizukuState.value = if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                    ShizukuState.READY
                 } else {
-                    _grantResult.value = GrantResult.DENIED
+                    checkShizukuState()
                 }
             }
         }
@@ -66,43 +69,74 @@ object ShizukuPermissionManager {
         val state = checkShizukuState()
         _shizukuState.value = state
 
-        return withContext(Dispatchers.IO) {
-            when (state) {
-                ShizukuState.READY -> {
-                    try {
-                        val cmd = "pm grant ${context.packageName} ${Manifest.permission.READ_LOGS}"
-                        val process: ShizukuRemoteProcess = Shizuku.newProcess(
-                            arrayOf("sh", "-c", cmd),
-                            null,
-                            null
-                        )
-                        val exitCode = process.waitFor()
-                        process.destroy()
-                        if (exitCode == 0) {
-                            GrantResult.GRANTED
-                        } else {
-                            GrantResult.FAILED
-                        }
-                    } catch (e: Exception) {
-                        GrantResult.FAILED
-                    }
-                }
-                ShizukuState.PERMISSION_NEEDED -> {
-                    Shizuku.requestPermission(SHIZUKU_REQUEST_CODE)
-                    GrantResult.PERMISSION_REQUESTED
-                }
-                ShizukuState.NOT_INSTALLED -> GrantResult.SHIZUKU_NOT_INSTALLED
-                ShizukuState.NOT_RUNNING -> GrantResult.SHIZUKU_NOT_RUNNING
-                ShizukuState.UNKNOWN -> GrantResult.FAILED
+        return when (state) {
+            ShizukuState.READY -> runViaUserService(context)
+            ShizukuState.PERMISSION_NEEDED -> {
+                Shizuku.requestPermission(SHIZUKU_REQUEST_CODE)
+                GrantResult.PERMISSION_REQUESTED
             }
+            ShizukuState.NOT_INSTALLED -> GrantResult.SHIZUKU_NOT_INSTALLED
+            ShizukuState.NOT_RUNNING -> GrantResult.SHIZUKU_NOT_RUNNING
+            ShizukuState.UNKNOWN -> GrantResult.FAILED
         }
     }
 
+    private suspend fun runViaUserService(context: Context): GrantResult =
+        withContext(Dispatchers.IO) {
+            val serviceArgs = Shizuku.UserServiceArgs(
+                ComponentName(context, ShizukuUserService::class.java)
+            )
+                .daemon(false)
+                .processNameSuffix("shizuku_service")
+                .debuggable(false)
+                .version(1)
+
+            val result = withTimeoutOrNull(15_000L) {
+                suspendCancellableCoroutine { cont ->
+                    val connection = object : ServiceConnection {
+                        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+                            try {
+                                val service = IShizukuUserService.Stub.asInterface(binder)
+                                val exitCode = service.grantPermission(
+                                    context.packageName,
+                                    Manifest.permission.READ_LOGS,
+                                )
+                                service.exit()
+                                cont.resume(if (exitCode == 0) GrantResult.GRANTED else GrantResult.FAILED)
+                            } catch (e: Exception) {
+                                cont.resume(GrantResult.FAILED)
+                            } finally {
+                                try {
+                                    Shizuku.unbindUserService(serviceArgs, this, true)
+                                } catch (_: Exception) {}
+                            }
+                        }
+
+                        override fun onServiceDisconnected(name: ComponentName) {
+                            if (cont.isActive) cont.resume(GrantResult.FAILED)
+                        }
+                    }
+
+                    cont.invokeOnCancellation {
+                        try {
+                            Shizuku.unbindUserService(serviceArgs, connection, true)
+                        } catch (_: Exception) {}
+                    }
+
+                    try {
+                        Shizuku.bindUserService(serviceArgs, connection)
+                    } catch (e: Exception) {
+                        cont.resume(GrantResult.FAILED)
+                    }
+                }
+            }
+
+            result ?: GrantResult.FAILED
+        }
+
     private fun checkShizukuState(): ShizukuState {
         return try {
-            if (!Shizuku.pingBinder()) {
-                return ShizukuState.NOT_RUNNING
-            }
+            if (!Shizuku.pingBinder()) return ShizukuState.NOT_RUNNING
             if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
                 ShizukuState.READY
             } else {

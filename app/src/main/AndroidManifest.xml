@@ -113,6 +113,12 @@
         android:foregroundServiceType="specialUse"
         android:stopWithTask="false" />
 
+    <service
+        android:name=".services.ShizukuUserService"
+        android:exported="true"
+        android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+        tools:ignore="ExportedService" />
+
     <receiver
         android:name=".util.PackageChangedBroadcastListener"
         android:exported="true">
