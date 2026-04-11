@@ -15,7 +15,7 @@ android {
     applicationId "com.dp.logcatapp"
     compileSdk = 36
     targetSdkVersion 36
-    minSdkVersion 23
+    minSdkVersion 24
     versionCode 47
     versionName "2.6.0"
     testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
