@@ -22,7 +22,9 @@ class ShizukuUserService : IShizukuUserService.Stub() {
             .invoke(null, "package") as? IBinder ?: return -1
         val stubClass = Class.forName("android.content.pm.IPackageManager\$Stub")
         val pm = stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, binder)
-        val userId = android.os.UserHandle.myUserId()
+        val userId = runCatching {
+            android.os.UserHandle::class.java.getMethod("myUserId").invoke(null) as Int
+        }.getOrElse { 0 }
         pm.javaClass.getMethod(
             "grantRuntimePermission",
             String::class.java,
