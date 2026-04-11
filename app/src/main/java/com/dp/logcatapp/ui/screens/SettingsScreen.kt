@@ -304,8 +304,11 @@ fun ReadLogsPermissionStatus(
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
-  val hasReadLogsPermission = remember(context) {
-    context.isReadLogsPermissionGranted()
+  var hasReadLogsPermission by remember { mutableStateOf(false) }
+  LaunchedEffect(context) {
+    hasReadLogsPermission = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      context.isReadLogsPermissionGranted()
+    }
   }
   ElevatedCard(
     modifier = modifier

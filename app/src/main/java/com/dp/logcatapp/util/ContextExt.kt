@@ -151,8 +151,14 @@ private class ToastWindowManager(
 }
 
 fun Context.isReadLogsPermissionGranted(): Boolean {
-  return ContextCompat.checkSelfPermission(
-    this,
-    Manifest.permission.READ_LOGS
-  ) == PackageManager.PERMISSION_GRANTED
+    val permissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_LOGS)
+    if (permissionCheck == PackageManager.PERMISSION_GRANTED) return true
+    return try {
+        val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "1"))
+        val exitCode = process.waitFor()
+        process.destroy()
+        exitCode == 0
+    } catch (_: Exception) {
+        false
+    }
 }

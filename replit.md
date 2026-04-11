@@ -41,8 +41,9 @@ microbenchmark/       # Benchmark module
 - View device logcat in real-time
 - Record, save, share and export logs
 - Advanced filtering (app, tag, message, priority, pid, tid, date/time, regex)
-- Shizuku integration for automatic READ_LOGS permission grant
-- Permission & connectivity status screen
+- Shizuku integration for automatic READ_LOGS permission grant (auto-triggers when Shizuku is ready)
+- Universal crash handler — shows crash log popup + sends notification with Copy button on any crash
+- Permission & connectivity status screen with real logcat-based READ_LOGS detection
 - Compact mode and display options
 - Dark/light/auto theme
 
@@ -100,7 +101,8 @@ Requires Android SDK and JDK 17.
 | Permission | Purpose |
 |---|---|
 | `READ_LOGS` | Required to read device logs (granted via Shizuku or ADB) |
-| `POST_NOTIFICATIONS` | Foreground service notification |
+| `POST_NOTIFICATIONS` | Foreground service notification + crash notifications |
+| `ACCESS_NETWORK_STATE` | Connectivity status screen |
 | `READ_EXTERNAL_STORAGE` | Read saved log files |
 | `WRITE_EXTERNAL_STORAGE` | Save log files |
 | `FOREGROUND_SERVICE` | Run logcat service in background |

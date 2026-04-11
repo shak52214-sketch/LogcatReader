@@ -7,6 +7,7 @@
   </queries>
 
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission
       android:name="android.permission.READ_EXTERNAL_STORAGE"
       tools:ignore="ScopedStorage" />
@@ -87,6 +88,17 @@
         android:name=".activities.PermissionStatusActivity"
         android:windowSoftInputMode="adjustResize"
         android:launchMode="singleTask" />
+
+    <activity
+        android:name=".activities.CrashActivity"
+        android:windowSoftInputMode="adjustResize"
+        android:launchMode="singleInstance"
+        android:exported="false"
+        android:excludeFromRecents="true" />
+
+    <receiver
+        android:name=".CopyClipboardReceiver"
+        android:exported="false" />
 
     <provider
         android:name="androidx.core.content.FileProvider"

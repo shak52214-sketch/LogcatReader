@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import com.dp.logcatapp.util.isReadLogsPermissionGranted
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -51,6 +52,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -76,11 +79,17 @@ fun PermissionStatusScreen(
     var isGranting by remember { mutableStateOf(false) }
     var grantMessage by remember { mutableStateOf<String?>(null) }
     var refreshTick by remember { mutableStateOf(0) }
+    var readLogsGranted by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
         ShizukuPermissionManager.shizukuState.collectLatest { state ->
             shizukuState = state
         }
+    }
+
+    LaunchedEffect(refreshTick) {
+        val granted = withContext(Dispatchers.IO) { context.isReadLogsPermissionGranted() }
+        readLogsGranted = granted
     }
 
     val permissionsToCheck = remember {
@@ -210,14 +219,19 @@ fun PermissionStatusScreen(
             SectionTitle("Permission Status")
 
             permissionsToCheck.forEach { entry ->
-                val granted = remember(refreshTick) {
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        entry.permission,
-                    ) == PackageManager.PERMISSION_GRANTED
+                val granted = if (entry.permission == Manifest.permission.READ_LOGS) {
+                    readLogsGranted ?: false
+                } else {
+                    remember(refreshTick) {
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            entry.permission,
+                        ) == PackageManager.PERMISSION_GRANTED
+                    }
                 }
                 PermissionStatusRow(
-                    name = entry.name,
+                    name = if (entry.permission == Manifest.permission.READ_LOGS && readLogsGranted == null)
+                        "${entry.name} (checking…)" else entry.name,
                     granted = granted,
                     critical = entry.critical,
                 )
