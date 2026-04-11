@@ -151,13 +151,23 @@ private class ToastWindowManager(
 }
 
 fun Context.isReadLogsPermissionGranted(): Boolean {
-    val permissionCheck = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_LOGS)
-    if (permissionCheck == PackageManager.PERMISSION_GRANTED) return true
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED) {
+        return true
+    }
     return try {
-        val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "1"))
-        val exitCode = process.waitFor()
+        val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "2", "-v", "uid"))
+        val output = process.inputStream.bufferedReader().readText()
+        process.errorStream.readBytes()
+        val code = process.waitFor()
         process.destroy()
-        exitCode == 0
+        val myUid = android.os.Process.myUid()
+        if (code != 0) return false
+        val lines = output.lines().filter { it.isNotBlank() }
+        lines.any { line ->
+            val uidMatch = Regex("uid=(\\d+)").find(line)
+            val uid = uidMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
+            uid != null && uid != myUid
+        }
     } catch (_: Exception) {
         false
     }

@@ -89,7 +89,7 @@ object ShizukuPermissionManager {
                 .daemon(false)
                 .processNameSuffix("shizuku_service")
                 .debuggable(false)
-                .version(1)
+                .version(2)
 
             val result = withTimeoutOrNull(15_000L) {
                 suspendCancellableCoroutine { cont ->
