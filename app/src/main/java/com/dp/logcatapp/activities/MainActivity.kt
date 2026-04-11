@@ -12,6 +12,7 @@ import com.dp.logcatapp.services.LogcatService
 import com.dp.logcatapp.ui.screens.DeviceLogsScreen
 import com.dp.logcatapp.ui.theme.LogcatReaderTheme
 import com.dp.logcatapp.util.SettingsPrefKeys
+import com.dp.logcatapp.util.ShizukuPermissionManager
 import com.dp.logcatapp.util.getDefaultSharedPreferences
 import com.dp.logcatapp.util.setKeepScreenOn
 import kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
@@ -30,6 +31,8 @@ class MainActivity : BaseActivity() {
     installSplashScreen()
 
     super.onCreate(savedInstanceState)
+
+    ShizukuPermissionManager.init()
 
     if (handleExitNotificationAction(intent)) {
       return
@@ -61,6 +64,11 @@ class MainActivity : BaseActivity() {
         SettingsPrefKeys.General.Default.KEY_KEEP_SCREEN_ON
       )
     )
+  }
+
+  override fun onDestroy() {
+    super.onDestroy()
+    ShizukuPermissionManager.destroy()
   }
 
   override fun onNewIntent(intent: Intent) {

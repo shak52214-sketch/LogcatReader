@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+  <queries>
+    <package android:name="moe.shizuku.privileged.api" />
+  </queries>
+
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission
       android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -79,6 +83,11 @@
         android:windowSoftInputMode="adjustResize"
         android:launchMode="singleTask" />
 
+    <activity
+        android:name=".activities.PermissionStatusActivity"
+        android:windowSoftInputMode="adjustResize"
+        android:launchMode="singleTask" />
+
     <provider
         android:name="androidx.core.content.FileProvider"
         android:authorities="${applicationId}.${fileProvider}"
@@ -88,6 +97,15 @@
           android:name="android.support.FILE_PROVIDER_PATHS"
           android:resource="@xml/file_provider_paths" />
     </provider>
+
+    <provider
+        android:name="rikka.shizuku.ShizukuProvider"
+        android:authorities="${applicationId}.shizuku"
+        android:exported="true"
+        android:multiprocess="false"
+        android:enabled="true"
+        android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+        tools:ignore="ExportedContentProvider" />
 
     <service
         android:name=".services.LogcatService"

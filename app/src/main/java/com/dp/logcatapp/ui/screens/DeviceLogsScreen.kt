@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.DisplaySettings
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -133,6 +134,7 @@ import com.dp.logcatapp.R
 import com.dp.logcatapp.activities.FiltersActivity
 import com.dp.logcatapp.activities.SavedLogsActivity
 import com.dp.logcatapp.activities.SavedLogsViewerActivity
+import com.dp.logcatapp.activities.PermissionStatusActivity
 import com.dp.logcatapp.activities.SettingsActivity
 import com.dp.logcatapp.db.FilterInfo
 import com.dp.logcatapp.db.LogcatReaderDatabase
@@ -626,6 +628,10 @@ fun DeviceLogsScreen(
         onClickSettings = {
           showDropDownMenu = false
           context.startActivity(Intent(context, SettingsActivity::class.java))
+        },
+        onClickPermissionStatus = {
+          showDropDownMenu = false
+          context.startActivity(Intent(context, PermissionStatusActivity::class.java))
         },
       )
       AnimatedVisibility(
@@ -1330,6 +1336,7 @@ private fun AppBar(
   onClickClear: () -> Unit,
   onClickRestartLogcat: () -> Unit,
   onClickSettings: () -> Unit,
+  onClickPermissionStatus: () -> Unit,
 ) {
   TopAppBar(
     title = {
@@ -1549,6 +1556,15 @@ private fun AppBar(
                 )
               },
               onClick = onClickSettings,
+            )
+            DropdownMenuItem(
+              leadingIcon = {
+                Icon(Icons.Default.Info, contentDescription = null)
+              },
+              text = {
+                Text(text = stringResource(R.string.permission_status))
+              },
+              onClick = onClickPermissionStatus,
             )
           }
         }

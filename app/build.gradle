@@ -130,6 +130,9 @@ dependencies {
   // Optional - Integration with ViewModels
   implementation libs.lifecycle.viewmodel.compose
 
+  implementation libs.shizuku.api
+  implementation libs.shizuku.provider
+
   testImplementation libs.junit
   androidTestImplementation libs.runner
   androidTestImplementation libs.espresso.core
