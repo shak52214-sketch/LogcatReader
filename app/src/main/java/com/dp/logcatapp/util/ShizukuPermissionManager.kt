@@ -70,7 +70,14 @@ object ShizukuPermissionManager {
         _shizukuState.value = state
 
         return when (state) {
-            ShizukuState.READY -> runViaUserService(context)
+            ShizukuState.READY -> {
+                val result = runViaNewProcess(context.packageName)
+                if (result == GrantResult.FAILED) {
+                    runViaUserService(context)
+                } else {
+                    result
+                }
+            }
             ShizukuState.PERMISSION_NEEDED -> {
                 Shizuku.requestPermission(SHIZUKU_REQUEST_CODE)
                 GrantResult.PERMISSION_REQUESTED
@@ -81,6 +88,53 @@ object ShizukuPermissionManager {
         }
     }
 
+    /**
+     * Primary method: uses Shizuku.newProcess() via reflection to run:
+     *   sh -c "pm grant <package> android.permission.READ_LOGS"
+     * This is how ashell and similar apps execute privileged shell commands via Shizuku.
+     */
+    private suspend fun runViaNewProcess(packageName: String): GrantResult =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val cmd = "pm grant $packageName ${Manifest.permission.READ_LOGS}"
+                val newProcess = Shizuku::class.java.getDeclaredMethod(
+                    "newProcess",
+                    Array<String>::class.java,
+                    Array<String>::class.java,
+                    String::class.java,
+                )
+                newProcess.isAccessible = true
+
+                val process = newProcess.invoke(
+                    null,
+                    arrayOf("sh", "-c", cmd),
+                    null,
+                    null,
+                )
+
+                val waitForMethod = process!!.javaClass.getMethod("waitFor")
+                val destroyMethod = process.javaClass.getMethod("destroy")
+
+                val inputStreamMethod = runCatching {
+                    process.javaClass.getMethod("getInputStream")
+                }.getOrNull()
+                val errorStreamMethod = runCatching {
+                    process.javaClass.getMethod("getErrorStream")
+                }.getOrNull()
+
+                runCatching { (inputStreamMethod?.invoke(process) as? java.io.InputStream)?.readBytes() }
+                runCatching { (errorStreamMethod?.invoke(process) as? java.io.InputStream)?.readBytes() }
+
+                val exitCode = waitForMethod.invoke(process) as Int
+                runCatching { destroyMethod.invoke(process) }
+
+                if (exitCode == 0) GrantResult.GRANTED else GrantResult.FAILED
+            }.getOrElse { GrantResult.FAILED }
+        }
+
+    /**
+     * Fallback method: uses Shizuku UserService (AIDL) to grant the permission.
+     */
     private suspend fun runViaUserService(context: Context): GrantResult =
         withContext(Dispatchers.IO) {
             val serviceArgs = Shizuku.UserServiceArgs(
